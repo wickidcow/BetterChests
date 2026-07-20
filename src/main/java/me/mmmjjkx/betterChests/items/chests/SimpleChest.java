@@ -50,7 +50,9 @@ public class SimpleChest extends SlimefunItem implements InventoryBlock {
 
             private void drop(Block b) {
                 BlockMenu menu = BlockStorage.getInventory(b);
-                menu.dropItems(b.getLocation(), getSlots());
+                if (menu != null) {
+                    menu.dropItems(b.getLocation(), getSlots());
+                }
 
                 World world = b.getWorld();
                 ItemStack item = getItem().clone();

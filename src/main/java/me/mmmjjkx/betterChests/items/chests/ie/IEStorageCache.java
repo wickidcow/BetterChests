@@ -19,7 +19,6 @@ import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
-import org.bukkit.metadata.FixedMetadataValue;
 import org.bukkit.persistence.PersistentDataType;
 
 import java.text.DecimalFormat;
@@ -108,11 +107,18 @@ public final class IEStorageCache {
         menu.addMenuClickHandler(STATUS_SLOT, (p, slot, item, action) -> {
             this.voidExcess = !this.voidExcess;
             BlockStorage.addBlockInfo(this.menu.getLocation(), VOID_EXCESS, this.voidExcess ? "true" : null);
-            ItemMeta meta = item.getItemMeta();
-            List<String> lore = meta.getLore();
-            lore.set(1, this.voidExcess ? VOID_EXCESS_TRUE : VOID_EXCESS_FALSE);
-            meta.setLore(lore);
-            item.setItemMeta(meta);
+            if (item != null) {
+                ItemMeta meta = item.getItemMeta();
+                List<String> lore = meta.getLore() == null
+                        ? new ArrayList<>()
+                        : new ArrayList<>(meta.getLore());
+                while (lore.size() < 2) {
+                    lore.add("");
+                }
+                lore.set(1, this.voidExcess ? VOID_EXCESS_TRUE : VOID_EXCESS_FALSE);
+                meta.setLore(lore);
+                item.setItemMeta(meta);
+            }
             return false;
         });
 
@@ -239,30 +245,47 @@ public final class IEStorageCache {
         drop.setItemMeta(IEStorageUnit.saveToStack(drop.getItemMeta(), this.storageUnit.getDisplayingItem(b), this.displayName, this.amount));
         e.getPlayer().sendMessage(ChatColor.GREEN + "Stored items transferred to dropped item");
         drops.add(drop);
-        b.removeMetadata("ie_item", BetterChests.INSTANCE);
     }
 
     void reloadData() {
         Config config = BlockStorage.getLocationInfo(this.menu.getLocation());
-        String amt = config.getString(STORED_AMOUNT);
-        this.amount = amt == null ? 0 : Integer.parseInt(amt);
-        this.voidExcess = "true".equals(config.getString(VOID_EXCESS));
+        String stored = config == null ? null : config.getString(STORED_AMOUNT);
+        try {
+            this.amount = stored == null ? 0 : Math.max(0, Math.min(this.storageUnit.max, Integer.parseInt(stored)));
+        } catch (NumberFormatException ignored) {
+            BetterChests.INSTANCE.getLogger().warning("Invalid IE storage amount at " + this.menu.getLocation() + ": " + stored);
+            this.amount = 0;
+        }
+        this.voidExcess = config != null && "true".equals(config.getString(VOID_EXCESS));
     }
 
     void load(ItemStack stored, ItemMeta copy) {
-        this.menu.replaceExistingItem(DISPLAY_SLOT, stored);
+        if (stored == null || stored.getType().isAir()) {
+            setEmpty();
+            return;
+        }
 
-        // remove the display key from copy
+        ItemStack display = stored.clone();
+        display.setAmount(1);
+        this.menu.replaceExistingItem(DISPLAY_SLOT, display);
+
+        if (copy == null) {
+            copy = display.getItemMeta();
+        } else {
+            copy = copy.clone();
+        }
+
+        // remove the display key from the stored comparison metadata
         copy.getPersistentDataContainer().remove(DISPLAY_KEY);
 
         // check if the copy has anything besides the display key
-        if (copy.equals(Bukkit.getItemFactory().getItemMeta(stored.getType()))) {
+        if (copy.equals(Bukkit.getItemFactory().getItemMeta(display.getType()))) {
             this.meta = null;
         } else {
             this.meta = copy;
         }
-        setDisplayName(ItemUtils.getItemName(stored));
-        this.material = stored.getType();
+        setDisplayName(ItemUtils.getItemName(display));
+        this.material = display.getType();
     }
 
     void input() {
@@ -379,7 +402,6 @@ public final class IEStorageCache {
         input.setAmount(1);
 
         this.menu.replaceExistingItem(DISPLAY_SLOT, input);
-        menu.getLocation().getBlock().setMetadata("ie_item", new FixedMetadataValue(BetterChests.INSTANCE, input));
     }
 
     private void setEmpty() {
@@ -388,11 +410,13 @@ public final class IEStorageCache {
         this.material = null;
         this.menu.replaceExistingItem(DISPLAY_SLOT, EMPTY_ITEM);
         this.amount = 0;
-        menu.getLocation().getBlock().removeMetadata("ie_item", BetterChests.INSTANCE);
     }
 
     boolean matches(ItemStack item) {
-        return item.getType() == this.material
+        return item != null
+                && this.material != null
+                && !item.getType().isAir()
+                && item.getType() == this.material
                 && item.hasItemMeta() == (this.meta != null)
                 && (this.meta == null || this.meta.equals(item.getItemMeta()));
     }
@@ -409,39 +433,47 @@ public final class IEStorageCache {
         return this.amount == 0;
     }
 
-    private void withdraw(Player p, int withdraw) {
-        if (this.material.getMaxStackSize() == 64) {
-            ItemStack remaining = p.getInventory().addItem(createItem(withdraw)).values().toArray(new ItemStack[]{})[0];
-            if (remaining != null) {
-                if (remaining.getAmount() != withdraw) {
-                    this.amount += remaining.getAmount() - withdraw;
-                }
-            } else {
-                this.amount -= withdraw;
-            }
+    private void withdraw(Player player, int requested) {
+        if (requested <= 0 || this.amount <= 0) {
             return;
         }
 
-        Inventory inv = p.getInventory();
-        int toWithdraw = withdraw;
-        do {
-            int amt = Math.min(this.material.getMaxStackSize(), toWithdraw);
-            ItemStack remaining = inv.addItem(createItem(amt)).values().toArray(new ItemStack[]{})[0];
-            if (remaining != null) {
-                toWithdraw -= amt - remaining.getAmount();
+        int remainingToGive = Math.min(requested, this.amount);
+        int acceptedTotal = 0;
+        Inventory inventory = player.getInventory();
+
+        while (remainingToGive > 0) {
+            int stackSize = Math.min(this.material.getMaxStackSize(), remainingToGive);
+            ItemStack offered = createItem(stackSize);
+            int leftover = inventory.addItem(offered).values().stream()
+                    .mapToInt(ItemStack::getAmount)
+                    .sum();
+            int accepted = stackSize - leftover;
+            acceptedTotal += accepted;
+            remainingToGive -= accepted;
+
+            if (accepted < stackSize) {
                 break;
-            } else {
-                toWithdraw -= amt;
             }
         }
-        while (toWithdraw > 0);
-        if (toWithdraw != withdraw) {
-            this.amount += toWithdraw - withdraw;
+
+        if (acceptedTotal > 0) {
+            this.amount -= acceptedTotal;
+            if (this.amount == 0) {
+                setEmpty();
+            }
         }
     }
 
-    private void withdrawLast(Player p) {
-        if (p.getInventory().addItem(createItem(1)).values().toArray(new ItemStack[]{})[0] == null) {
+    private void withdrawLast(Player player) {
+        if (this.amount != 1) {
+            return;
+        }
+
+        int leftover = player.getInventory().addItem(createItem(1)).values().stream()
+                .mapToInt(ItemStack::getAmount)
+                .sum();
+        if (leftover == 0) {
             setEmpty();
         }
     }
@@ -485,6 +517,9 @@ public final class IEStorageCache {
     }
 
     public void amount(int amount) {
-        this.amount = amount;
+        this.amount = Math.max(0, Math.min(this.storageUnit.max, amount));
+        if (this.amount == 0) {
+            setEmpty();
+        }
     }
 }

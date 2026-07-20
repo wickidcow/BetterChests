@@ -24,6 +24,7 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.jetbrains.annotations.NotNull;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
@@ -65,11 +66,17 @@ public class LocationRecorder extends SimpleSlimefunItem<ItemUseHandler> impleme
                             .deserialize("&bX: &a" + loc.getBlockX() + " &bY: &a" + loc.getBlockY() + " &bZ: &a" + loc.getBlockZ())
                             .decoration(TextDecoration.ITALIC, false);
 
-                    List<Component> lore = meta.lore();
-
-                    if (lore != null && lore.size() < 3) {
+                    List<Component> existingLore = meta.lore();
+                    List<Component> lore = existingLore == null
+                            ? new ArrayList<>()
+                            : new ArrayList<>(existingLore);
+                    while (lore.size() < 3) {
                         lore.add(Component.empty());
+                    }
+                    if (lore.size() == 3) {
                         lore.add(newLore);
+                    } else {
+                        lore.set(3, newLore);
                     }
 
                     meta.lore(lore);
@@ -88,7 +95,13 @@ public class LocationRecorder extends SimpleSlimefunItem<ItemUseHandler> impleme
                 OptionalInt z = PersistentDataAPI.getOptionalInt(meta, Z);
 
                 if (world.isPresent() && x.isPresent() && y.isPresent() && z.isPresent()) {
-                    Location loc = new Location(Bukkit.getWorld(world.get()), x.getAsInt(), y.getAsInt(), z.getAsInt());
+                    org.bukkit.World targetWorld = Bukkit.getWorld(world.get());
+                    if (targetWorld == null) {
+                        p.sendMessage("§cThe recorded world is not loaded or no longer exists.");
+                        return;
+                    }
+
+                    Location loc = new Location(targetWorld, x.getAsInt(), y.getAsInt(), z.getAsInt());
 
                     if (!Slimefun.getProtectionManager().hasPermission(p, loc, Interaction.INTERACT_BLOCK)) {
                         p.sendMessage("§cYou do not have permission to access this location.");
@@ -98,6 +111,8 @@ public class LocationRecorder extends SimpleSlimefunItem<ItemUseHandler> impleme
                     BlockMenu menu = BlockStorage.getInventory(loc);
                     if (menu != null) {
                         menu.open(p);
+                    } else {
+                        p.sendMessage("§cThe recorded block no longer has an accessible Slimefun inventory.");
                     }
                 } else {
                     p.sendMessage("§cYou haven't recorded a location yet.");

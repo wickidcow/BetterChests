@@ -8,6 +8,7 @@ import io.github.thebusybiscuit.slimefun4.implementation.SlimefunItems;
 import io.github.thebusybiscuit.slimefun4.implementation.items.RadioactiveItem;
 import me.mmmjjkx.betterChests.BCGroups;
 import me.mmmjjkx.betterChests.BetterChests;
+import me.mmmjjkx.betterChests.items.cargo.P2PTransfer;
 import me.mmmjjkx.betterChests.items.chests.OnlyInputChest;
 import me.mmmjjkx.betterChests.items.chests.OnlyOutputChest;
 import me.mmmjjkx.betterChests.items.chests.SimpleChest;
@@ -356,6 +357,19 @@ public class BCItems {
                     SlimefunItems.ELECTRIC_MOTOR.getItem().getItem(), SlimefunItems.REINFORCED_PLATE.getItem().getItem(), SlimefunItems.ANDROID_MEMORY_CORE.getItem().getItem()
             });
     
+    /**
+     * Dev-16 constructed this unfinished item but never registered it. Keep an
+     * inert compatibility instance so existing binary structure remains stable.
+     */
+    public static final P2PTransfer POINT_TO_POINT_TRANSFER = new P2PTransfer(
+            new SlimefunItemStack("BC_POINT_TO_POINT_TRANSFER", BCItemStacks.POINT_TO_POINT_TRANSFER),
+            RecipeType.ENHANCED_CRAFTING_TABLE,
+            new ItemStack[]{
+                    new ItemStack(Material.IRON_BARS), SlimefunItems.ALUMINUM_INGOT.getItem().getItem(), new ItemStack(Material.IRON_BARS),
+                    new ItemStack(Material.REDSTONE_BLOCK), new ItemStack(Material.CHEST), new ItemStack(Material.REDSTONE_BLOCK),
+                    SlimefunItems.ELECTRIC_MOTOR.getItem().getItem(), SlimefunItems.HARDENED_METAL_INGOT.getItem().getItem(), SlimefunItems.SYNTHETIC_SAPPHIRE.getItem().getItem()
+            });
+
     private BCItems() {
     }
 

@@ -29,8 +29,6 @@ import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.block.BlockPlaceEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
-import org.bukkit.metadata.FixedMetadataValue;
-import org.bukkit.metadata.MetadataValue;
 import org.bukkit.persistence.PersistentDataAdapterContext;
 import org.bukkit.persistence.PersistentDataContainer;
 import org.bukkit.persistence.PersistentDataType;
@@ -92,24 +90,28 @@ public final class IEStorageUnit extends SlimefunItem implements InventoryBlock,
         }
 
         @Override
-        public byte @NotNull [] toPrimitive(@NotNull ItemStack itemStack, @NotNull PersistentDataAdapterContext persistentDataAdapterContext) {
-            ByteArrayOutputStream bytes = new ByteArrayOutputStream();
-            try (BukkitObjectOutputStream output = new BukkitObjectOutputStream(bytes)) {
-                output.writeObject(itemStack);
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
-            return bytes.toByteArray();
+        public byte @NotNull [] toPrimitive(@NotNull ItemStack itemStack, @NotNull PersistentDataAdapterContext context) {
+            ItemStack copy = itemStack.clone();
+            copy.setAmount(1);
+            return copy.serializeAsBytes();
         }
 
         @Override
-        public @NotNull ItemStack fromPrimitive(byte @NotNull [] arr, @NotNull PersistentDataAdapterContext persistentDataAdapterContext) {
-            ByteArrayInputStream bytes = new ByteArrayInputStream(arr);
-            try (BukkitObjectInputStream input = new BukkitObjectInputStream(bytes)) {
-                return (ItemStack) input.readObject();
-            } catch (Exception e) {
-                e.printStackTrace();
-                return new ItemStackBuilder(Material.STONE, "&cERROR").getItemStack();
+        public @NotNull ItemStack fromPrimitive(byte @NotNull [] arr, @NotNull PersistentDataAdapterContext context) {
+            try {
+                ItemStack item = ItemStack.deserializeBytes(arr);
+                item.setAmount(1);
+                return item;
+            } catch (RuntimeException modernFormatFailed) {
+                // Backward compatibility for portable units written by Dev-16.
+                try (BukkitObjectInputStream input = new BukkitObjectInputStream(new ByteArrayInputStream(arr))) {
+                    ItemStack item = (ItemStack) input.readObject();
+                    item.setAmount(1);
+                    return item;
+                } catch (Exception legacyFormatFailed) {
+                    BetterChests.INSTANCE.getLogger().warning("Could not decode a portable IE storage item.");
+                    return new ItemStackBuilder(Material.STONE, "&cERROR").getItemStack();
+                }
             }
         }
     };
@@ -138,8 +140,17 @@ public final class IEStorageUnit extends SlimefunItem implements InventoryBlock,
             @Override
             public void onPlayerBreak(BlockBreakEvent e, ItemStack item, List<ItemStack> drops) {
                 BlockMenu menu = BlockStorage.getInventory(e.getBlock());
+                if (menu == null) {
+                    drops.add(getItem().clone());
+                    return;
+                }
+
                 IEStorageCache cache = caches.remove(menu.getLocation());
-                if (cache != null && !cache.isEmpty()) {
+                if (cache == null) {
+                    cache = new IEStorageCache(IEStorageUnit.this, menu);
+                }
+
+                if (!cache.isEmpty()) {
                     cache.destroy(e, drops);
                 } else {
                     drops.add(getItem().clone());
@@ -169,12 +180,12 @@ public final class IEStorageUnit extends SlimefunItem implements InventoryBlock,
 
             @Override
             public int[] getSlotsAccessedByItemTransport(ItemTransportFlow itemTransportFlow) {
-                return itemTransportFlow == ItemTransportFlow.WITHDRAW ? getInputSlots() : getOutputSlots();
+                return itemTransportFlow == ItemTransportFlow.WITHDRAW ? getOutputSlots() : getInputSlots();
             }
 
             @Override
             public int[] getSlotsAccessedByItemTransport(DirtyChestMenu menu, ItemTransportFlow flow, ItemStack item) {
-                return flow == ItemTransportFlow.WITHDRAW ? getInputSlots(menu, item) : getOutputSlots();
+                return flow == ItemTransportFlow.WITHDRAW ? getOutputSlots() : getInputSlots(menu, item);
             }
 
             @Override
@@ -193,23 +204,20 @@ public final class IEStorageUnit extends SlimefunItem implements InventoryBlock,
     }
 
     static ItemMeta saveToStack(ItemMeta meta, ItemStack displayItem, String displayName, int amount) {
-        if (meta.hasLore()) {
-            List<String> lore = meta.getLore();
-            lore.add(ChatColor.GOLD + "Stored: " + displayName + ChatColor.YELLOW + " x " + amount);
-            meta.setLore(lore);
-        }
+        List<String> lore = meta.hasLore() && meta.getLore() != null
+                ? new ArrayList<>(meta.getLore())
+                : new ArrayList<>();
+        lore.add(ChatColor.GOLD + "Stored: " + displayName + ChatColor.YELLOW + " x " + amount);
+        meta.setLore(lore);
         meta.getPersistentDataContainer().set(ITEM_KEY, ITEM_STACK, displayItem);
         meta.getPersistentDataContainer().set(AMOUNT_KEY, PersistentDataType.INTEGER, amount);
         return meta;
     }
 
-    public ItemStack getDisplayingItem(Block b) {
-        List<MetadataValue> metadata = b.getMetadata("ie_item");
-        if (metadata.isEmpty()) {
-            return BlockStorage.getInventory(b).getItemInSlot(DISPLAY_SLOT);
-        } else {
-            return (ItemStack) metadata.get(0).value();
-        }
+    public ItemStack getDisplayingItem(Block block) {
+        BlockMenu menu = BlockStorage.getInventory(block);
+        ItemStack display = menu == null ? null : menu.getItemInSlot(DISPLAY_SLOT);
+        return display == null ? new ItemStack(Material.BARRIER) : display;
     }
 
     public long getCapacity() {
@@ -239,12 +247,23 @@ public final class IEStorageUnit extends SlimefunItem implements InventoryBlock,
 
     private void onPlace(@Nonnull BlockPlaceEvent e, @Nonnull Block b) {
         Pair<ItemStack, Integer> data = loadFromStack(e.getItemInHand());
-        if (data != null) {
-            IEStorageCache cache = this.caches.get(b.getLocation());
-            cache.load(data.getFirstValue(), data.getFirstValue().getItemMeta());
-            cache.amount(data.getSecondValue());
-            b.setMetadata("ie_item", new FixedMetadataValue(BetterChests.INSTANCE, data.getFirstValue()));
+        if (data == null) {
+            return;
         }
+
+        ItemStack stored = data.getFirstValue().clone();
+        int storedAmount = data.getSecondValue();
+        Bukkit.getScheduler().runTask(BetterChests.INSTANCE, () -> {
+            BlockMenu menu = BlockStorage.getInventory(b);
+            if (menu == null) {
+                BetterChests.INSTANCE.getLogger().warning("Could not restore portable IE storage at " + b.getLocation());
+                return;
+            }
+
+            IEStorageCache cache = this.caches.computeIfAbsent(b.getLocation(), location -> new IEStorageCache(this, menu));
+            cache.load(stored, stored.getItemMeta());
+            cache.amount(storedAmount);
+        });
     }
 
     private void setup(@Nonnull BlockMenuPreset blockMenuPreset) {
@@ -284,7 +303,10 @@ public final class IEStorageUnit extends SlimefunItem implements InventoryBlock,
     }
 
     public void reloadCache(Block b) {
-        this.caches.get(b.getLocation()).reloadData();
+        IEStorageCache cache = this.caches.get(b.getLocation());
+        if (cache != null) {
+            cache.reloadData();
+        }
     }
 
     @Nullable

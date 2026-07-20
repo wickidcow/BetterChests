@@ -1,157 +1,117 @@
 package me.mmmjjkx.betterChests.utils;
 
-import java.io.File;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.io.Reader;
-import java.net.JarURLConnection;
-import java.net.URL;
-import java.nio.charset.StandardCharsets;
-import java.util.Enumeration;
-import java.util.List;
-import java.util.Objects;
-import java.util.Set;
-import java.util.jar.JarEntry;
-import java.util.jar.JarFile;
-
 import org.bukkit.ChatColor;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.plugin.Plugin;
 
+import java.io.File;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.Reader;
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Set;
+
 @SuppressWarnings("deprecation")
 public final class LanguageManager {
-    private final Plugin plugin;
+    private static final List<String> BUNDLED_LANGUAGES = List.of("en-US", "pt_BR");
 
+    private final Plugin plugin;
     private YamlConfiguration configuration;
 
     public LanguageManager(Plugin plugin) {
         this.plugin = plugin;
-
         loadLanguages();
     }
 
     private void loadLanguages() {
-        File pluginFolder = plugin.getDataFolder();
-
-        URL fileURL = Objects.requireNonNull(plugin.getClass().getClassLoader().getResource("language/"));
-        String jarPath = fileURL.toString().substring(0, fileURL.toString().indexOf("!/") + 2);
-
-        try {
-            URL jar = new URL(jarPath);
-            JarURLConnection jarCon = (JarURLConnection) jar.openConnection();
-            JarFile jarFile = jarCon.getJarFile();
-            Enumeration<JarEntry> jarEntries = jarFile.entries();
-
-            while (jarEntries.hasMoreElements()) {
-                JarEntry entry = jarEntries.nextElement();
-                String name = entry.getName();
-                if (name.startsWith("language/") && !entry.isDirectory()) {
-                    String realName = name.replaceAll("language/", "");
-                    try (InputStream stream = plugin.getClass().getClassLoader().getResourceAsStream(name)) {
-                        File destinationFile = new File(pluginFolder, "language/" + realName);
-
-                        if (!destinationFile.exists() && stream != null) {
-                            plugin.saveResource("language/" + realName, false);
-                        }
-
-                        completeLangFile(plugin, "language/" + realName);
-                    }
-                }
+        for (String language : BUNDLED_LANGUAGES) {
+            String resource = "language/" + language + ".yml";
+            File destination = new File(plugin.getDataFolder(), resource);
+            if (!destination.exists()) {
+                plugin.saveResource(resource, false);
             }
-        } catch (Exception e) {
-            throw new RuntimeException(e);
+            completeLangFile(resource);
         }
 
-        String lang = plugin.getConfig().getString("options.language");
-        if (lang == null || lang.isBlank()) {
-            plugin.getConfig().set("options.language", "en-US");
-            lang = "en-US";
+        String language = plugin.getConfig().getString("options.language", "en-US");
+        if (language == null || language.isBlank()) {
+            language = "en-US";
         }
 
-        File langFile = new File(pluginFolder, "language/" + lang + ".yml");
-
-        if (!langFile.exists()) {
-            lang = "en-US";
-            langFile = new File(pluginFolder, "language/" + lang + ".yml");
-            if (!langFile.exists()) {
-                plugin.saveResource("language/en-US.yml", false);
-            }
+        File languageFile = new File(plugin.getDataFolder(), "language/" + language + ".yml");
+        if (!languageFile.isFile()) {
+            plugin.getLogger().warning("Unknown BetterChests language '" + language + "'; using en-US.");
+            language = "en-US";
+            languageFile = new File(plugin.getDataFolder(), "language/en-US.yml");
         }
 
-        configuration = YamlConfiguration.loadConfiguration(langFile);
+        plugin.getConfig().set("options.language", language);
+        plugin.saveConfig();
+        configuration = YamlConfiguration.loadConfiguration(languageFile);
     }
 
-    public String getMsg(String key, MessageReplacement... args) {
-        String msg = configuration.getString(key);
-        if (msg == null) {
+    public String getMsg(String key, MessageReplacement... arguments) {
+        String message = configuration.getString(key);
+        if (message == null) {
             return key;
         }
 
-        for (MessageReplacement arg : args) {
-            msg = arg.parse(msg);
+        for (MessageReplacement argument : arguments) {
+            message = argument.parse(message);
         }
-
-        return ChatColor.translateAlternateColorCodes('&', msg);
+        return color(message);
     }
 
-    public List<String> getMsgList(String key, MessageReplacement... args) {
-        List<String> msgList = configuration.getStringList(key);
-        for (MessageReplacement arg : args) {
-            msgList.replaceAll(s -> ChatColor.translateAlternateColorCodes('&', arg.parse(s)));
-        }
-
-        return msgList;
+    public List<String> getMsgList(String key, MessageReplacement... arguments) {
+        List<String> messages = new ArrayList<>(configuration.getStringList(key));
+        messages.replaceAll(message -> {
+            String parsed = message;
+            for (MessageReplacement argument : arguments) {
+                parsed = argument.parse(parsed);
+            }
+            return color(parsed);
+        });
+        return messages;
     }
 
-    private void completeLangFile(Plugin plugin, String resourceFile) {
-        InputStream stream = plugin.getResource(resourceFile);
+    private String color(String value) {
+        return ChatColor.translateAlternateColorCodes('&', value);
+    }
+
+    private void completeLangFile(String resourceFile) {
         File file = new File(plugin.getDataFolder(), resourceFile);
-
-        if (!file.exists()) {
-            if (stream != null) {
-                plugin.saveResource(resourceFile, false);
+        try (InputStream stream = plugin.getResource(resourceFile)) {
+            if (stream == null) {
+                plugin.getLogger().warning("Bundled language resource is missing: " + resourceFile);
                 return;
             }
-            plugin.getLogger().warning("File completion of '" + resourceFile + "' is failed.");
-            return;
-        }
 
-        if (stream == null) {
-            plugin.getLogger().warning("File completion of '" + resourceFile + "' is failed.");
-            return;
-        }
+            try (Reader reader = new InputStreamReader(stream, StandardCharsets.UTF_8)) {
+                YamlConfiguration defaults = YamlConfiguration.loadConfiguration(reader);
+                YamlConfiguration current = YamlConfiguration.loadConfiguration(file);
 
-        try {
-            Reader reader = new InputStreamReader(stream, StandardCharsets.UTF_8);
-            YamlConfiguration configuration = YamlConfiguration.loadConfiguration(reader);
-            YamlConfiguration configuration2 = YamlConfiguration.loadConfiguration(file);
-
-            Set<String> keys = configuration.getKeys(true);
-            for (String key : keys) {
-                Object value = configuration.get(key);
-                if (value instanceof List<?>) {
-                    List<?> list2 = configuration2.getList(key);
-                    if (list2 == null) {
-                        configuration2.set(key, value);
-                        continue;
+                for (String key : defaults.getKeys(true)) {
+                    if (!current.contains(key)) {
+                        current.set(key, defaults.get(key));
+                    }
+                    if (!defaults.getComments(key).equals(current.getComments(key))) {
+                        current.setComments(key, defaults.getComments(key));
                     }
                 }
-                if (!configuration2.contains(key)) {
-                    configuration2.set(key, value);
+
+                Set<String> currentKeys = Set.copyOf(current.getKeys(true));
+                for (String key : currentKeys) {
+                    if (!defaults.contains(key)) {
+                        current.set(key, null);
+                    }
                 }
-                if (!configuration.getComments(key).equals(configuration2.getComments(key))) {
-                    configuration2.setComments(key, configuration.getComments(key));
-                }
+                current.save(file);
             }
-            for (String key : configuration2.getKeys(true)) {
-                if (configuration2.contains(key) & !configuration.contains(key)) {
-                    configuration2.set(key, null);
-                }
-            }
-            configuration2.save(file);
-        } catch (Exception e) {
-            e.printStackTrace();
-            plugin.getLogger().warning("File completion of '" + resourceFile + "' is failed.");
+        } catch (Exception exception) {
+            plugin.getLogger().log(java.util.logging.Level.WARNING,
+                    "Could not update language file '" + resourceFile + "'.", exception);
         }
     }
 }

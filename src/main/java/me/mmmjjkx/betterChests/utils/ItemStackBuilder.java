@@ -1,6 +1,5 @@
 package me.mmmjjkx.betterChests.utils;
 
-import lombok.Getter;
 import org.bukkit.Material;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
@@ -9,8 +8,7 @@ import java.util.List;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
 
-@Getter
-public class ItemStackBuilder {
+public final class ItemStackBuilder {
     private final ItemStack itemStack;
 
     public ItemStackBuilder(Material material, Consumer<ItemMeta> metaConsumer) {
@@ -41,6 +39,10 @@ public class ItemStackBuilder {
         itemMeta.setDisplayName(displayName);
         itemMeta.setLore(lore);
         itemStack.setItemMeta(itemMeta);
+    }
+
+    public ItemStack getItemStack() {
+        return itemStack;
     }
 
     public ItemStackBuilder setAmount(int amount) {

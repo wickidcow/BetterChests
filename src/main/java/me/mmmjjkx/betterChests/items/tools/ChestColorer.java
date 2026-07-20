@@ -10,7 +10,6 @@ import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
 import io.github.thebusybiscuit.slimefun4.implementation.items.SimpleSlimefunItem;
 import io.github.thebusybiscuit.slimefun4.libraries.dough.data.persistent.PersistentDataAPI;
 import io.github.thebusybiscuit.slimefun4.libraries.dough.protection.Interaction;
-import lombok.Getter;
 import me.mmmjjkx.betterChests.BCGroups;
 import me.mmmjjkx.betterChests.BetterChests;
 import me.mmmjjkx.betterChests.items.chests.SimpleChest;
@@ -26,6 +25,7 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.jetbrains.annotations.NotNull;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
@@ -60,7 +60,8 @@ public class ChestColorer extends SimpleSlimefunItem<ItemUseHandler> implements 
             }
 
             if (cycle) {
-                int index = PersistentDataAPI.getOptionalInt(item.getItemMeta(), COLOR_KEY).orElse(DEFAULT_COLOR.ordinal());
+                int index = normalizeIndex(PersistentDataAPI.getOptionalInt(item.getItemMeta(), COLOR_KEY)
+                        .orElse(DEFAULT_COLOR.ordinal()));
 
                 int nextIndex = index + 1;
                 if (nextIndex >= ColorMaterials.values().length) {
@@ -76,8 +77,13 @@ public class ChestColorer extends SimpleSlimefunItem<ItemUseHandler> implements 
 
                 Component lore = LegacyComponentSerializer.legacyAmpersand().deserialize(currentColor + colorName)
                         .decoration(TextDecoration.ITALIC, false);
-                List<Component> loreList = item.lore();
-
+                List<Component> currentLore = meta.lore();
+                List<Component> loreList = currentLore == null
+                        ? new ArrayList<>()
+                        : new ArrayList<>(currentLore);
+                while (loreList.size() <= 3) {
+                    loreList.add(Component.empty());
+                }
                 loreList.set(3, lore);
 
                 meta.lore(loreList);
@@ -93,7 +99,8 @@ public class ChestColorer extends SimpleSlimefunItem<ItemUseHandler> implements 
                     if (sfItem instanceof SimpleChest) {
                         if (getItemCharge(item) >= 10) {
                             removeItemCharge(item, 10);
-                            int index = PersistentDataAPI.getOptionalInt(item.getItemMeta(), COLOR_KEY).orElse(DEFAULT_COLOR.ordinal());
+                            int index = normalizeIndex(PersistentDataAPI.getOptionalInt(item.getItemMeta(), COLOR_KEY)
+                                    .orElse(DEFAULT_COLOR.ordinal()));
                             ColorMaterials color = ColorMaterials.values()[index];
                             b.setType(color.getMaterial());
                         } else {
@@ -107,7 +114,12 @@ public class ChestColorer extends SimpleSlimefunItem<ItemUseHandler> implements 
         };
     }
 
-    @Getter
+    private static int normalizeIndex(int index) {
+        return index >= 0 && index < ColorMaterials.values().length
+                ? index
+                : DEFAULT_COLOR.ordinal();
+    }
+
     private enum ColorMaterials {
         NoColor(Material.GLASS, "no_color"),
         White(Material.WHITE_STAINED_GLASS, "white"),
@@ -133,6 +145,10 @@ public class ChestColorer extends SimpleSlimefunItem<ItemUseHandler> implements 
         ColorMaterials(Material material, String key) {
             this.material = material;
             this.key = key;
+        }
+
+        public Material getMaterial() {
+            return material;
         }
 
         public String getTranslationKey() {
