@@ -1,0 +1,226 @@
+/*
+ * Decompiled with CFR 0.152.
+ * 
+ * Could not load the following classes:
+ *  io.github.thebusybiscuit.slimefun4.api.items.ItemGroup
+ *  io.github.thebusybiscuit.slimefun4.api.items.ItemHandler
+ *  io.github.thebusybiscuit.slimefun4.api.items.SlimefunItem
+ *  io.github.thebusybiscuit.slimefun4.api.items.SlimefunItemStack
+ *  io.github.thebusybiscuit.slimefun4.api.recipes.RecipeType
+ *  io.github.thebusybiscuit.slimefun4.core.handlers.BlockBreakHandler
+ *  io.github.thebusybiscuit.slimefun4.core.handlers.BlockPlaceHandler
+ *  io.github.thebusybiscuit.slimefun4.utils.ChestMenuUtils
+ *  me.mrCookieSlime.CSCoreLibPlugin.Configuration.Config
+ *  me.mrCookieSlime.CSCoreLibPlugin.general.Inventory.ChestMenu$AdvancedMenuClickHandler
+ *  me.mrCookieSlime.CSCoreLibPlugin.general.Inventory.ChestMenu$MenuClickHandler
+ *  me.mrCookieSlime.CSCoreLibPlugin.general.Inventory.ClickAction
+ *  me.mrCookieSlime.Slimefun.Objects.SlimefunItem.interfaces.InventoryBlock
+ *  me.mrCookieSlime.Slimefun.Objects.handlers.BlockTicker
+ *  me.mrCookieSlime.Slimefun.api.BlockStorage
+ *  me.mrCookieSlime.Slimefun.api.inventory.BlockMenu
+ *  org.bukkit.Location
+ *  org.bukkit.Material
+ *  org.bukkit.block.Block
+ *  org.bukkit.block.BlockFace
+ *  org.bukkit.entity.Player
+ *  org.bukkit.event.block.BlockBreakEvent
+ *  org.bukkit.event.block.BlockPlaceEvent
+ *  org.bukkit.event.inventory.InventoryClickEvent
+ *  org.bukkit.inventory.ItemStack
+ *  org.jetbrains.annotations.NotNull
+ */
+package me.mmmjjkx.betterChests.items.cargo;
+
+import io.github.thebusybiscuit.slimefun4.api.items.ItemGroup;
+import io.github.thebusybiscuit.slimefun4.api.items.ItemHandler;
+import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItem;
+import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItemStack;
+import io.github.thebusybiscuit.slimefun4.api.recipes.RecipeType;
+import io.github.thebusybiscuit.slimefun4.core.handlers.BlockBreakHandler;
+import io.github.thebusybiscuit.slimefun4.core.handlers.BlockPlaceHandler;
+import io.github.thebusybiscuit.slimefun4.utils.ChestMenuUtils;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.stream.IntStream;
+import me.mmmjjkx.betterChests.BCGroups;
+import me.mmmjjkx.betterChests.BetterChests;
+import me.mmmjjkx.betterChests.items.chests.SimpleDrawer;
+import me.mmmjjkx.betterChests.utils.ItemStackBuilder;
+import me.mmmjjkx.betterChests.utils.MessageReplacement;
+import me.mrCookieSlime.CSCoreLibPlugin.Configuration.Config;
+import me.mrCookieSlime.CSCoreLibPlugin.general.Inventory.ChestMenu;
+import me.mrCookieSlime.CSCoreLibPlugin.general.Inventory.ClickAction;
+import me.mrCookieSlime.Slimefun.Objects.SlimefunItem.interfaces.InventoryBlock;
+import me.mrCookieSlime.Slimefun.Objects.handlers.BlockTicker;
+import me.mrCookieSlime.Slimefun.api.BlockStorage;
+import me.mrCookieSlime.Slimefun.api.inventory.BlockMenu;
+import org.bukkit.Location;
+import org.bukkit.Material;
+import org.bukkit.block.Block;
+import org.bukkit.block.BlockFace;
+import org.bukkit.entity.Player;
+import org.bukkit.event.block.BlockBreakEvent;
+import org.bukkit.event.block.BlockPlaceEvent;
+import org.bukkit.event.inventory.InventoryClickEvent;
+import org.bukkit.inventory.ItemStack;
+import org.jetbrains.annotations.NotNull;
+
+public class P2PTransfer
+extends SlimefunItem
+implements InventoryBlock {
+    private final BlockFace[] FACES = new BlockFace[]{BlockFace.NORTH, BlockFace.EAST, BlockFace.SOUTH, BlockFace.WEST, BlockFace.UP, BlockFace.DOWN, BlockFace.SELF};
+    private final List<Integer> TAKEN_SLOTS = List.of(Integer.valueOf(0), Integer.valueOf(18), Integer.valueOf(1), Integer.valueOf(19), Integer.valueOf(9), Integer.valueOf(11), Integer.valueOf(10));
+    private final ItemStack UP = new ItemStackBuilder(Material.PURPLE_STAINED_GLASS_PANE, BetterChests.INSTANCE.getLang().getMsg("items.p2p_transfer.up", new MessageReplacement[0]), new String[0]).getItemStack();
+    private final ItemStack DOWN = new ItemStackBuilder(Material.PURPLE_STAINED_GLASS_PANE, BetterChests.INSTANCE.getLang().getMsg("items.p2p_transfer.down", new MessageReplacement[0]), new String[0]).getItemStack();
+    private final ItemStack WEST = new ItemStackBuilder(Material.PURPLE_STAINED_GLASS_PANE, BetterChests.INSTANCE.getLang().getMsg("items.p2p_transfer.west", new MessageReplacement[0]), new String[0]).getItemStack();
+    private final ItemStack EAST = new ItemStackBuilder(Material.PURPLE_STAINED_GLASS_PANE, BetterChests.INSTANCE.getLang().getMsg("items.p2p_transfer.east", new MessageReplacement[0]), new String[0]).getItemStack();
+    private final ItemStack NORTH = new ItemStackBuilder(Material.PURPLE_STAINED_GLASS_PANE, BetterChests.INSTANCE.getLang().getMsg("items.p2p_transfer.north", new MessageReplacement[0]), new String[0]).getItemStack();
+    private final ItemStack SOUTH = new ItemStackBuilder(Material.PURPLE_STAINED_GLASS_PANE, BetterChests.INSTANCE.getLang().getMsg("items.p2p_transfer.south", new MessageReplacement[0]), new String[0]).getItemStack();
+    private final ItemStack STOP_TRANSFER = new ItemStackBuilder(Material.RED_STAINED_GLASS_PANE, BetterChests.INSTANCE.getLang().getMsg("items.p2p_transfer.stop_transfer", new MessageReplacement[0]), new String[0]).getItemStack();
+
+    public P2PTransfer(SlimefunItemStack item, RecipeType recipeType, ItemStack[] recipe) {
+        super((ItemGroup)BCGroups.CARGO, item, recipeType, recipe);
+        this.addItemHandler(new ItemHandler[]{new BlockPlaceHandler(false){
+
+            public void onPlayerPlace(@NotNull BlockPlaceEvent e) {
+                BlockFace f = e.getPlayer().getFacing();
+                BlockFace dest = f.getOppositeFace();
+                Block self = e.getBlockPlaced();
+                BlockStorage.addBlockInfo((Block)self, (String)"p2p_dest", (String)String.valueOf(dest.ordinal()));
+                BlockStorage.addBlockInfo((Block)self, (String)"p2p_origin", (String)String.valueOf(f.ordinal()));
+            }
+        }, new BlockBreakHandler(false, false){
+
+            public void onPlayerBreak(@NotNull BlockBreakEvent e, @NotNull ItemStack itemStack, @NotNull List<ItemStack> list) {
+                Location loc = e.getBlock().getLocation();
+                BlockStorage.clearBlockInfo((Location)loc);
+            }
+        }});
+        this.addItemHandler(new ItemHandler[]{new BlockTicker(){
+
+            public boolean isSynchronized() {
+                return false;
+            }
+
+            public void tick(Block block, SlimefunItem slimefunItem, Config config) {
+                P2PTransfer.this.tick(block);
+            }
+        }});
+        this.createPreset(this, bmp -> {
+            bmp.addItem(0, this.UP, (p, s, i, a) -> {
+                Location machine = p.getOpenInventory().getTopInventory().getLocation();
+                this.setDest(machine, BlockFace.UP);
+                return false;
+            });
+            bmp.addItem(18, this.DOWN, (ChestMenu.MenuClickHandler)new ChestMenu.AdvancedMenuClickHandler(){
+
+                public boolean onClick(Player player, int i, ItemStack itemStack, ClickAction clickAction) {
+                    return false;
+                }
+
+                public boolean onClick(InventoryClickEvent e, Player player, int i, ItemStack itemStack, ClickAction clickAction) {
+                    Location machine = e.getInventory().getLocation();
+                    P2PTransfer.this.setDest(machine, BlockFace.DOWN);
+                    return false;
+                }
+            });
+            bmp.addItem(1, this.NORTH, (p, s, i, a) -> {
+                Location machine = p.getOpenInventory().getTopInventory().getLocation();
+                this.setDest(machine, BlockFace.NORTH);
+                return false;
+            });
+            bmp.addItem(19, this.SOUTH, (p, s, i, a) -> {
+                Location machine = p.getOpenInventory().getTopInventory().getLocation();
+                this.setDest(machine, BlockFace.SOUTH);
+                return false;
+            });
+            bmp.addItem(9, this.WEST, (p, s, i, a) -> {
+                Location machine = p.getOpenInventory().getTopInventory().getLocation();
+                this.setDest(machine, BlockFace.WEST);
+                return false;
+            });
+            bmp.addItem(11, this.EAST, (ChestMenu.MenuClickHandler)new ChestMenu.AdvancedMenuClickHandler(){
+
+                public boolean onClick(InventoryClickEvent e, Player player, int i, ItemStack itemStack, ClickAction clickAction) {
+                    Location machine = e.getInventory().getLocation();
+                    P2PTransfer.this.setDest(machine, BlockFace.EAST);
+                    return false;
+                }
+
+                public boolean onClick(Player player, int i, ItemStack itemStack, ClickAction clickAction) {
+                    return false;
+                }
+            });
+            bmp.addItem(10, this.STOP_TRANSFER, (p, s, i, a) -> {
+                Location machine = p.getOpenInventory().getTopInventory().getLocation();
+                this.setDest(machine, BlockFace.SELF);
+                return false;
+            });
+            for (int t : IntStream.range(0, 27).filter(i -> !this.TAKEN_SLOTS.contains(i)).toArray()) {
+                bmp.addItem(t, ChestMenuUtils.getBackground(), (p, s, i, a) -> false);
+            }
+        });
+    }
+
+    private void tick(Block block) {
+        BlockMenu menu = BlockStorage.getInventory((Block)block);
+        if (menu == null) {
+            return;
+        }
+        int destOrdinal = Integer.parseInt(BlockStorage.getLocationInfo((Location)block.getLocation(), (String)"p2p_dest"));
+        BlockFace dest = this.FACES[destOrdinal];
+        if (dest == BlockFace.SELF) {
+            return;
+        }
+        BlockFace originOrdinal = this.FACES[Integer.parseInt(BlockStorage.getLocationInfo((Location)block.getLocation(), (String)"p2p_origin"))];
+        ArrayList<ItemStack> items = new ArrayList<ItemStack>();
+        Block origin = block.getRelative(originOrdinal);
+        SlimefunItem sfItem = BlockStorage.check((Block)origin);
+        if (sfItem instanceof InventoryBlock) {
+            InventoryBlock inv = (InventoryBlock)sfItem;
+            int[] out = inv.getOutputSlots();
+            BlockMenu originMenu = BlockStorage.getInventory((Block)block.getRelative(originOrdinal));
+            for (int slot : out) {
+                if (originMenu.getItemInSlot(slot) == null) continue;
+                items.add(originMenu.getItemInSlot(slot));
+            }
+        } else if (sfItem instanceof SimpleDrawer) {
+            SimpleDrawer sd = (SimpleDrawer)sfItem;
+            items.add(sd.getStoringItem(origin.getLocation()).asQuantity(sd.getStoringItemCountSafely(origin.getLocation())));
+        }
+        for (ItemStack it : items) {
+            SlimefunItem destSfItem = BlockStorage.check((Block)block.getRelative(dest));
+            if (destSfItem instanceof InventoryBlock) {
+                InventoryBlock destInv = (InventoryBlock)destSfItem;
+                int[] in = destInv.getInputSlots();
+                BlockMenu destMenu = BlockStorage.getInventory((Block)block.getRelative(dest));
+                for (int slot : in) {
+                    if (!destMenu.fits(it, new int[]{slot})) continue;
+                    destMenu.pushItem(it, new int[]{slot});
+                    menu.consumeItem(slot, it.getAmount());
+                }
+                continue;
+            }
+            if (!(destSfItem instanceof SimpleDrawer)) continue;
+            SimpleDrawer sd = (SimpleDrawer)destSfItem;
+            sd.addItem(block.getLocation(), it);
+        }
+    }
+
+    private void setDest(Location loc, BlockFace face) {
+        int destOrdinal = face.ordinal();
+        if (face == BlockFace.SELF) {
+            destOrdinal = 6;
+        }
+        BlockStorage.addBlockInfo((Location)loc, (String)"p2p_dest", (String)String.valueOf(destOrdinal));
+    }
+
+    public int[] getInputSlots() {
+        return new int[0];
+    }
+
+    public int[] getOutputSlots() {
+        return new int[0];
+    }
+}
+
