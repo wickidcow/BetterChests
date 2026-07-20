@@ -8,9 +8,9 @@ items:
   tip:
     name: "&bTip"
     lore:
-    - "&c&lDon't place too many drawers in one chunk!"
-    - "&c&lThe drawers will spawn 3 entities once they were placed."
-    - "&c&lYou might losing some items if you place too many drawers in one chunk."
+    - "&aDrawer contents are saved persistently."
+    - "&7Empty hand: withdraw one stack."
+    - "&7Held item: deposit matching items."
   gear_wheel:
     name: "&bGear Wheel"
     lore:
@@ -38,6 +38,7 @@ items:
       purple: "&dPurple"
       magenta: "&dMagenta"
       pink: "&dPink"
+      brown: "&6Brown"
       black: "&0Black"
       gray: "&7Gray"
       light_gray: "&7Light Gray"

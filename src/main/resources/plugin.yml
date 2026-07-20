@@ -1,8 +1,9 @@
 name: BetterChests
-version: 'Dev - ?'
+version: '${project.version}'
 main: me.mmmjjkx.betterChests.BetterChests
-api-version: '1.19'
-depend: ["Slimefun"]
-softdepend: ["SlimeHUD"]
-author: "mmmjjkx"
-description: "A plugin that adds more chests to the game."
+api-version: '26.2'
+depend: [Slimefun]
+softdepend: [SlimeHUD]
+authors: [mmmjjkx, AlbionMC]
+description: Restart-safe bulk drawers and expanded Slimefun storage for Paper 26.2.
+website: https://github.com/lijinhong11/SfBetterChests

@@ -10,9 +10,9 @@ items:
   tip:
     name: '&bDica'
     lore:
-      - '&c&lNão coloque muitas gavetas em um mesmo chunk!'
-      - '&c&lAs gavetas geram 3 entidades quando colocadas.'
-      - '&c&lVocê pode perder itens se colocar muitas gavetas em um chunk.'
+      - '&aO conteúdo das gavetas é salvo permanentemente.'
+      - '&7Mão vazia: retirar uma pilha.'
+      - '&7Item na mão: depositar itens iguais.'
   gear_wheel:
     name: '&bRoda Dentada'
     lore:
@@ -40,6 +40,7 @@ items:
       purple: "&dRoxo"
       magenta: "&dMagenta"
       pink: "&dRosa"
+      brown: "&6Marrom"
       black: "&0Preto"
       gray: "&7Cinza"
       light_gray: "&7Cinza Claro"

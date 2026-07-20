@@ -1,3 +1,5 @@
 options:
   language: en-US
-  auto-update: true
+
+# Upstream auto-update is intentionally disabled in this fork.
+# Updating from the old upstream build would overwrite the Paper 26.2 fixes.
