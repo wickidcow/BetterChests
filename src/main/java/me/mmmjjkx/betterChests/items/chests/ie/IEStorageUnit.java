@@ -185,7 +185,14 @@ public final class IEStorageUnit extends SlimefunItem implements InventoryBlock,
 
             @Override
             public int[] getSlotsAccessedByItemTransport(DirtyChestMenu menu, ItemTransportFlow flow, ItemStack item) {
-                return flow == ItemTransportFlow.WITHDRAW ? getOutputSlots() : getInputSlots(menu, item);
+                /*
+                 * Core Slimefun passes a non-null candidate item when cargo is inserting
+                 * and null when cargo is withdrawing. Some maintained Slimefun forks have
+                 * historically supplied the opposite ItemTransportFlow enum value here.
+                 * Using the actual operation payload keeps this storage compatible with
+                 * both implementations while retaining the standard one-argument mapping.
+                 */
+                return item == null ? getOutputSlots() : getInputSlots(menu, item);
             }
 
             @Override
