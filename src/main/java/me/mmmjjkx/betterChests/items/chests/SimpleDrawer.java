@@ -10,6 +10,7 @@ import io.github.thebusybiscuit.slimefun4.core.handlers.BlockUseHandler;
 import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
 import io.github.thebusybiscuit.slimefun4.implementation.items.cargo.CargoNode;
 import io.github.thebusybiscuit.slimefun4.utils.ChestMenuUtils;
+import io.github.thebusybiscuit.slimefun4.utils.SlimefunUtils;
 import io.github.thebusybiscuit.slimefun4.libraries.dough.protection.Interaction;
 import it.unimi.dsi.fastutil.Pair;
 import me.mmmjjkx.betterChests.BCGroups;
@@ -254,9 +255,13 @@ public class SimpleDrawer extends SlimefunItem implements NotHopperable, Invento
         synchronized (lock(block.getLocation())) {
             DrawerData data = DrawerStorage.read(block);
             ItemStack stored = data.item();
-            ItemStack candidate = one(item);
-            return (stored == null || stored.isSimilar(candidate))
-                    && capacity - data.count() >= item.getAmount();
+
+            // Slimefun deliberately passes an immutable ItemStackWrapper here.
+            // Compare it directly using Slimefun's wrapper-aware comparator;
+            // do not clone or reconstruct it during the cargo slot probe.
+            boolean compatible = stored == null
+                    || SlimefunUtils.isItemSimilar(stored, item, true, false);
+            return compatible && capacity - data.count() >= item.getAmount();
         }
     }
 

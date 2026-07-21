@@ -1,17 +1,23 @@
-# Drawer cargo ItemStackWrapper fix
+# Drawer Cargo Wrapper Fix — 2.0.6-26.2
 
-Slimefun may pass an immutable `ItemStackWrapper` to dynamic cargo slot callbacks.
-Calling `clone()`, `setAmount`, or other mutators on that wrapper throws
-`UnsupportedOperationException`.
+Slimefun passes an immutable `ItemStackWrapper` to
+`getSlotsAccessedByItemTransport` while probing cargo insertion slots. The
+wrapper deliberately throws from `clone()` and all mutation methods.
 
-Version 2.0.4 converts arbitrary incoming stacks through Bukkit's
-`new ItemStack(source)` copy constructor before changing amounts or storing them.
-This specifically fixes the crash in `SimpleDrawer.one(...)` and also hardens the
-remaining drawer cargo, persistence, break-drop, and migration copy paths.
+Paper 26.2's `ItemStack(ItemStack)` copy constructor is not a workaround: it
+internally delegates to `source.clone()`, so 2.0.4/2.0.5 could still trigger the
+wrapper exception.
 
-## CI test note
+Version 2.0.6 fixes both layers:
 
-Paper 26.2 requires live registry access when constructing `Material`/`ItemStack`
-objects. The Maven regression test therefore validates the source implementation
-without initializing Bukkit item registries in Surefire. Runtime behavior is still
-validated on a Paper server.
+1. `SimpleDrawer.canAcceptWholeCargoStack` no longer copies the cargo probe. It
+   compares the stored item and wrapper directly with
+   `SlimefunUtils.isItemSimilar(..., checkAmount=false)`.
+2. `MutableItemStacks.copy` detects `ItemStackWrapper`. Normal Paper stacks use
+   `clone()` to preserve every native component; wrappers are rebuilt as a new
+   mutable Paper stack using their material, amount, and cloned cached
+   `ItemMeta`.
+3. Build-safe regression checks reject both `new ItemStack(source)` and wrapper
+   copying in the cargo probe.
+
+The IE storage-unit cargo implementation is unchanged.

@@ -1,12 +1,15 @@
 package me.mmmjjkx.betterChests.utils;
 
+import io.github.thebusybiscuit.slimefun4.utils.itemstack.ItemStackWrapper;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.ItemMeta;
 import org.jetbrains.annotations.NotNull;
 
 /**
  * Creates ordinary mutable Bukkit item stacks from arbitrary ItemStack
- * implementations. Slimefun may pass immutable ItemStackWrapper instances to
- * cargo callbacks; invoking clone() or any setter on those wrappers throws.
+ * implementations. Slimefun passes immutable ItemStackWrapper instances to
+ * cargo slot-selection callbacks; invoking clone(), the Bukkit copy
+ * constructor, or a setter on those wrappers throws.
  */
 public final class MutableItemStacks {
 
@@ -14,12 +17,31 @@ public final class MutableItemStacks {
     }
 
     /**
-     * Uses Bukkit's copy constructor instead of virtual ItemStack#clone().
-     * This preserves the source stack's item data while returning a normal,
-     * mutable ItemStack even when the source is a Slimefun wrapper.
+     * Returns an independent mutable stack.
+     *
+     * <p>Normal Bukkit/Paper stacks are cloned so all native data components
+     * remain exact. Slimefun's ItemStackWrapper cannot be cloned and Paper's
+     * ItemStack(ItemStack) constructor delegates to clone(), so wrappers are
+     * rebuilt from the public type, amount, and cached ItemMeta snapshot.</p>
      */
     public static @NotNull ItemStack copy(@NotNull ItemStack source) {
-        return new ItemStack(source);
+        if (!(source instanceof ItemStackWrapper)) {
+            return source.clone();
+        }
+
+        int amount = source.getAmount();
+        ItemStack copy = ItemStack.of(source.getType(), Math.max(1, amount));
+
+        if (source.hasItemMeta()) {
+            ItemMeta meta = source.getItemMeta();
+            copy.setItemMeta(meta.clone());
+        }
+
+        if (amount < 1) {
+            copy.setAmount(amount);
+        }
+
+        return copy;
     }
 
     public static @NotNull ItemStack copyWithAmount(@NotNull ItemStack source, int amount) {

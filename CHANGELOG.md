@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.0.6-26.2
+
+- Fixed the remaining drawer cargo crash caused by Paper's `ItemStack(ItemStack)` copy constructor delegating to `source.clone()`.
+- Removed all wrapper copying from the cargo slot-selection hot path and now compare candidates with Slimefun's wrapper-aware item comparator.
+- Added a dedicated `ItemStackWrapper` reconstruction path using material, amount, and a cloned `ItemMeta` snapshot.
+- Normal mutable Bukkit/Paper stacks continue to use `clone()` so their complete native data components remain intact.
+- Updated regression checks to reject both direct wrapper cloning and Paper's wrapper-unsafe copy constructor.
+
 ## 2.0.5-26.2
 
 - Fixed the GitHub Actions build failure caused by initializing Paper 26.2 registries inside a plain Maven test JVM.

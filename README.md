@@ -25,7 +25,8 @@ items remain recognizable after replacing Dev-16.
 - The barrel inventory does not open; that is intentional.
 - Vanilla hoppers do not access drawers; drawers remain `NotHopperable`.
 - Slimefun Cargo Input and Output Nodes may be attached to drawers.
-- Cargo-provided immutable item wrappers are converted to mutable Bukkit copies before storage.
+- Cargo slot probes compare Slimefun's immutable item wrappers directly without cloning them.
+- Any wrapper that must become stored data is reconstructed as a mutable Paper stack from its type, amount, and metadata.
 
 ## Upgrade procedure
 
