@@ -4,6 +4,7 @@ import io.github.thebusybiscuit.slimefun4.api.SlimefunAddon;
 import me.mmmjjkx.betterChests.integrations.SlimeHudIntegration;
 import me.mmmjjkx.betterChests.items.BCItems;
 import me.mmmjjkx.betterChests.listeners.DrawerFixListener;
+import me.mmmjjkx.betterChests.listeners.LegacyItemTextListener;
 import me.mmmjjkx.betterChests.utils.LanguageManager;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.jetbrains.annotations.NotNull;
@@ -25,6 +26,7 @@ public final class BetterChests extends JavaPlugin implements SlimefunAddon {
         languageManager = new LanguageManager(this);
         BCItems.registerItems();
         getServer().getPluginManager().registerEvents(new DrawerFixListener(), this);
+        getServer().getPluginManager().registerEvents(new LegacyItemTextListener(), this);
 
         if (getServer().getPluginManager().isPluginEnabled("SlimeHUD")) {
             try {

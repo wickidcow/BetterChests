@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.0.7-26.2
+
+- Fixed literal `&` color codes appearing in the IE storage Quick Actions GUI.
+- Fixed BetterChests item names and lore showing raw color codes while dropped in the world.
+- Replaced legacy string ItemMeta writes in `ItemStackBuilder` with Adventure components.
+- Supports both raw ampersand codes and already-translated section-sign codes.
+- Added build-safe formatting regression tests that do not initialize Paper registries.
+
 ## 2.0.6-26.2
 
 - Fixed the remaining drawer cargo crash caused by Paper's `ItemStack(ItemStack)` copy constructor delegating to `source.clone()`.

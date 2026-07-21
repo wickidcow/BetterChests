@@ -4,9 +4,9 @@ import org.bukkit.Material;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.function.Consumer;
-import java.util.stream.Stream;
 
 public final class ItemStackBuilder {
     private final ItemStack itemStack;
@@ -28,16 +28,16 @@ public final class ItemStackBuilder {
     public ItemStackBuilder(Material material, String displayName, String... lore) {
         itemStack = new ItemStack(material);
         ItemMeta itemMeta = itemStack.getItemMeta();
-        itemMeta.setDisplayName(displayName);
-        itemMeta.setLore(Stream.of(lore).toList());
+        itemMeta.displayName(LegacyText.component(displayName));
+        itemMeta.lore(LegacyText.components(Arrays.asList(lore)));
         itemStack.setItemMeta(itemMeta);
     }
 
     public ItemStackBuilder(Material material, String displayName, List<String> lore) {
         this.itemStack = new ItemStack(material);
         ItemMeta itemMeta = itemStack.getItemMeta();
-        itemMeta.setDisplayName(displayName);
-        itemMeta.setLore(lore);
+        itemMeta.displayName(LegacyText.component(displayName));
+        itemMeta.lore(LegacyText.components(lore));
         itemStack.setItemMeta(itemMeta);
     }
 

@@ -17,6 +17,7 @@ items remain recognizable after replacing Dev-16.
 - IE-style storage withdrawal no longer indexes an empty leftovers array.
 - Portable IE units use Paper's migration-safe ItemStack byte serialization with Dev-16 fallback.
 - The upstream auto-updater was removed so it cannot overwrite fork fixes.
+- GUI labels, item lore, and dropped item names parse legacy `&`/section color codes into Adventure components.
 
 ## Player controls
 
