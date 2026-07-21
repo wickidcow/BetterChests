@@ -1,5 +1,14 @@
 # Changelog
 
+## 2.0.3-26.2
+
+- Added native Slimefun cargo-node attachment support to all drawer tiers.
+- Cargo Output Nodes can now insert directly into persistent drawer storage.
+- Cargo Input Nodes can now withdraw from drawers through a safe virtual output slot.
+- Prevented right-click drawer handling from consuming or blocking cargo-node placement.
+- Added protection against mirrored output duplication and preserved exceptional buffered input on break.
+- Left the already-working IE storage cargo implementation unchanged.
+
 ## 2.0.2-26.2 — Cargo compatibility repair
 
 - Restored cargo insertion and withdrawal for Infinity-style storage units.

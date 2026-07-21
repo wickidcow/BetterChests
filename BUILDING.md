@@ -45,7 +45,7 @@ mvn clean package
 The usable plugin jar is created at:
 
 ```text
-target/BetterChests-Albion-2.0.2-26.2.jar
+target/BetterChests-Albion-2.0.3-26.2.jar
 ```
 
 Do not copy `original-*.jar` or dependency jars to the server.

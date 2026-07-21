@@ -24,6 +24,9 @@ items remain recognizable after replacing Dev-16.
 - Right-click with an empty main hand: withdraw up to one normal stack.
 - The barrel inventory does not open; that is intentional.
 - Vanilla hoppers do not access drawers; drawers remain `NotHopperable`.
+- Slimefun Cargo Output Nodes can insert matching items into drawers.
+- Slimefun Cargo Input Nodes can withdraw normal stacks from drawers.
+- Place cargo nodes against a drawer the same way as other Slimefun inventories (sneak-place when required by the barrel interaction).
 
 ## Upgrade procedure
 
