@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.0.2-26.2 — Cargo compatibility repair
+
+- Restored cargo insertion and withdrawal for Infinity-style storage units.
+- Dynamic cargo routing now identifies insertion by the non-null candidate item and withdrawal by a null candidate item.
+- Supports both standard Slimefun cargo semantics and maintained forks that historically supplied the opposite `ItemTransportFlow` enum value.
+- Keeps the standard input/output mapping for integrations that use the one-argument transport API.
+
 ## 2.0.0-26.2 — Albion modernization
 
 ### Drawers
