@@ -17,6 +17,7 @@ import me.mmmjjkx.betterChests.BetterChests;
 import me.mmmjjkx.betterChests.storage.DrawerData;
 import me.mmmjjkx.betterChests.storage.DrawerDisplayManager;
 import me.mmmjjkx.betterChests.storage.DrawerStorage;
+import me.mmmjjkx.betterChests.utils.MutableItemStacks;
 import me.mrCookieSlime.Slimefun.Objects.SlimefunItem.interfaces.InventoryBlock;
 import me.mrCookieSlime.Slimefun.api.BlockStorage;
 import me.mrCookieSlime.Slimefun.api.inventory.BlockMenu;
@@ -140,7 +141,7 @@ public class SimpleDrawer extends SlimefunItem implements NotHopperable, Invento
                     if (cargoMenu != null) {
                         ItemStack buffered = cargoMenu.getItemInSlot(CARGO_INPUT_SLOT);
                         if (buffered != null && !buffered.getType().isAir() && buffered.getAmount() > 0) {
-                            drops.add(buffered.clone());
+                            drops.add(MutableItemStacks.copy(buffered));
                         }
                         clearCargoMenu(block, cargoMenu);
                     }
@@ -271,13 +272,13 @@ public class SimpleDrawer extends SlimefunItem implements NotHopperable, Invento
             ItemStack candidate = one(incoming);
 
             if (stored != null && !stored.isSimilar(candidate)) {
-                return incoming;
+                return MutableItemStacks.copy(incoming);
             }
 
             long free = capacity - data.count();
             int accepted = (int) Math.min(Math.max(0L, free), incoming.getAmount());
             if (accepted <= 0) {
-                return incoming;
+                return MutableItemStacks.copy(incoming);
             }
 
             DrawerData updated = new DrawerData(
@@ -289,7 +290,7 @@ public class SimpleDrawer extends SlimefunItem implements NotHopperable, Invento
 
             int remaining = incoming.getAmount() - accepted;
             if (remaining > 0) {
-                remainder = incoming.clone();
+                remainder = MutableItemStacks.copy(incoming);
                 remainder.setAmount(remaining);
             } else {
                 remainder = null;
@@ -335,7 +336,7 @@ public class SimpleDrawer extends SlimefunItem implements NotHopperable, Invento
             return;
         }
 
-        ItemStack remainder = acceptCargoInput(block, menu, buffered.clone());
+        ItemStack remainder = acceptCargoInput(block, menu, MutableItemStacks.copy(buffered));
         replaceCargoSlot(block, menu, CARGO_INPUT_SLOT, remainder);
     }
 
@@ -352,7 +353,7 @@ public class SimpleDrawer extends SlimefunItem implements NotHopperable, Invento
             return null;
         }
 
-        ItemStack output = data.item().clone();
+        ItemStack output = MutableItemStacks.copy(data.item());
         output.setAmount((int) Math.min(data.count(), output.getMaxStackSize()));
         return output;
     }
@@ -435,7 +436,7 @@ public class SimpleDrawer extends SlimefunItem implements NotHopperable, Invento
         }
 
         int requested = (int) Math.min(data.count(), stored.getMaxStackSize());
-        ItemStack outgoing = stored.clone();
+        ItemStack outgoing = MutableItemStacks.copy(stored);
         outgoing.setAmount(requested);
 
         PlayerInventory inventory = player.getInventory();
@@ -503,7 +504,7 @@ public class SimpleDrawer extends SlimefunItem implements NotHopperable, Invento
             }
         }
 
-        ItemStack added = template.clone();
+        ItemStack added = MutableItemStacks.copy(template);
         added.setAmount(1);
         drops.add(added);
         return added;
@@ -538,10 +539,17 @@ public class SimpleDrawer extends SlimefunItem implements NotHopperable, Invento
             DrawerDisplayManager.update(block, updated);
 
             int remainder = item.getAmount() - accepted;
-            if (remainder <= 0) {
-                item.setType(Material.AIR);
-            } else {
-                item.setAmount(remainder);
+            // The return value is authoritative. Some Slimefun cargo paths pass
+            // immutable ItemStackWrapper instances, so mutating the caller's
+            // stack is best-effort only for legacy integrations.
+            try {
+                if (remainder <= 0) {
+                    item.setType(Material.AIR);
+                } else {
+                    item.setAmount(remainder);
+                }
+            } catch (UnsupportedOperationException ignored) {
+                // Immutable wrapper: callers must use the returned remainder.
             }
             return Pair.of(accepted > 0, Math.max(0, remainder));
         }
@@ -578,7 +586,7 @@ public class SimpleDrawer extends SlimefunItem implements NotHopperable, Invento
                 return null;
             }
 
-            ItemStack result = stored.clone();
+            ItemStack result = MutableItemStacks.copy(stored);
             result.setAmount(count);
             DrawerData updated = new DrawerData(stored, data.count() - count);
             DrawerStorage.write(block, updated);
@@ -588,9 +596,7 @@ public class SimpleDrawer extends SlimefunItem implements NotHopperable, Invento
     }
 
     private static ItemStack one(ItemStack item) {
-        ItemStack copy = item.clone();
-        copy.setAmount(1);
-        return copy;
+        return MutableItemStacks.copyWithAmount(item, 1);
     }
 
     private static Object lock(Location location) {

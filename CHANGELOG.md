@@ -1,13 +1,11 @@
 # Changelog
 
-## 2.0.3-26.2
+## 2.0.4-26.2
 
-- Added native Slimefun cargo-node attachment support to all drawer tiers.
-- Cargo Output Nodes can now insert directly into persistent drawer storage.
-- Cargo Input Nodes can now withdraw from drawers through a safe virtual output slot.
-- Prevented right-click drawer handling from consuming or blocking cargo-node placement.
-- Added protection against mirrored output duplication and preserved exceptional buffered input on break.
-- Left the already-working IE storage cargo implementation unchanged.
+- Fixed drawer cargo insertion crashing when Slimefun supplied an immutable `ItemStackWrapper`.
+- Replaced virtual `ItemStack#clone()` calls on cargo-provided stacks with Bukkit's mutable copy constructor.
+- Hardened drawer data snapshots and legacy drawer migration against immutable stack implementations.
+- Kept the legacy drawer `addItem` mutation hook best-effort while making its returned remainder authoritative.
 
 ## 2.0.2-26.2 — Cargo compatibility repair
 

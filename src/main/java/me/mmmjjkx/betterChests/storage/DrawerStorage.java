@@ -1,6 +1,7 @@
 package me.mmmjjkx.betterChests.storage;
 
 import me.mmmjjkx.betterChests.BetterChests;
+import me.mmmjjkx.betterChests.utils.MutableItemStacks;
 import me.mrCookieSlime.Slimefun.api.BlockStorage;
 import org.bukkit.Location;
 import org.bukkit.Material;
@@ -170,8 +171,7 @@ public final class DrawerStorage {
         for (MetadataValue value : values) {
             Object raw = value.value();
             if (raw instanceof ItemStack stack && stack.getType() != Material.AIR) {
-                ItemStack copy = stack.clone();
-                copy.setAmount(1);
+                ItemStack copy = MutableItemStacks.copyWithAmount(stack, 1);
                 return copy;
             }
         }
@@ -200,8 +200,7 @@ public final class DrawerStorage {
                 if (candidate != null
                         && candidate.getType() != Material.AIR
                         && candidate.getType() != Material.BARRIER) {
-                    item = candidate.clone();
-                    item.setAmount(1);
+                    item = MutableItemStacks.copyWithAmount(candidate, 1);
                 }
             } else if (entity instanceof TextDisplay display) {
                 String text = display.getText();

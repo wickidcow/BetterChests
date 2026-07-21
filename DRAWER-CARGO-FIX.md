@@ -1,4 +1,4 @@
-# Drawer Cargo Fix — 2.0.3-26.2
+# Drawer Cargo Fix — 2.0.4-26.2
 
 This release changes only drawer cargo compatibility. The working IE storage cargo implementation is unchanged.
 

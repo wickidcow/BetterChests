@@ -6,4 +6,4 @@ depend: [Slimefun]
 softdepend: [SlimeHUD]
 authors: [mmmjjkx, AlbionMC]
 description: Restart-safe bulk drawers and expanded Slimefun storage for Paper 26.2.
-website: https://github.com/lijinhong11/SfBetterChests
+website: https://github.com/wickidcow/BetterChests

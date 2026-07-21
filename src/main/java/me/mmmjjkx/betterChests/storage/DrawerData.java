@@ -1,5 +1,6 @@
 package me.mmmjjkx.betterChests.storage;
 
+import me.mmmjjkx.betterChests.utils.MutableItemStacks;
 import org.bukkit.Material;
 import org.bukkit.inventory.ItemStack;
 import org.jetbrains.annotations.Nullable;
@@ -18,8 +19,7 @@ public record DrawerData(@Nullable ItemStack item, long count) {
             item = null;
             count = 0;
         } else {
-            item = item.clone();
-            item.setAmount(1);
+            item = MutableItemStacks.copyWithAmount(item, 1);
         }
     }
 
@@ -33,6 +33,6 @@ public record DrawerData(@Nullable ItemStack item, long count) {
 
     @Override
     public @Nullable ItemStack item() {
-        return item == null ? null : item.clone();
+        return item == null ? null : MutableItemStacks.copy(item);
     }
 }
