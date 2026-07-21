@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.0.5-26.2
+
+- Fixed the GitHub Actions build failure caused by initializing Paper 26.2 registries inside a plain Maven test JVM.
+- Reworked the immutable `ItemStackWrapper` regression test into a server-independent source validation test.
+- Kept the 2.0.4 drawer cargo runtime fix unchanged.
+
 ## 2.0.4-26.2
 
 - Fixed drawer cargo insertion crashing when Slimefun supplied an immutable `ItemStackWrapper`.
