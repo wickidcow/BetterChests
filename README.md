@@ -26,6 +26,8 @@ items remain recognizable after replacing Dev-16.
 - The barrel inventory does not open; that is intentional.
 - Vanilla hoppers do not access drawers; drawers remain `NotHopperable`.
 - Slimefun Cargo Input and Output Nodes may be attached to drawers.
+- Failed cargo deliveries are returned to persistent drawer storage instead of being voided.
+- Breaking a drawer produces exactly one portable drawer item, whether empty or filled.
 - Cargo slot probes compare Slimefun's immutable item wrappers directly without cloning them.
 - Any wrapper that must become stored data is reconstructed as a mutable Paper stack from its type, amount, and metadata.
 

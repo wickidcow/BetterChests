@@ -1,5 +1,14 @@
 # Changelog
 
+## 2.0.8-26.2
+
+- Fixed drawer cargo withdrawals being deleted when no valid Cargo Output Node could accept them.
+- Drawer cargo now leaves the virtual output slot empty long enough for Slimefun to return an undelivered stack to its source.
+- Undelivered or partially delivered cargo is restored to the drawer's persistent count instead of being stored as an untracked mirror item.
+- Fixed empty and filled drawers dropping two drawer items when broken.
+- Drawer break data is now staged for Slimefun's single normal drop call, producing exactly one portable drawer with its stored contents preserved.
+- Added build-safe regression checks for the cargo rollback and single-drop behavior.
+
 ## 2.0.7-26.2
 
 - Fixed literal `&` color codes appearing in the IE storage Quick Actions GUI.

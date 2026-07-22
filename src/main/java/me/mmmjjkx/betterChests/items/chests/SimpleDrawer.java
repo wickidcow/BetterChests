@@ -38,6 +38,7 @@ import org.bukkit.inventory.PlayerInventory;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -59,9 +60,11 @@ public class SimpleDrawer extends SlimefunItem implements NotHopperable, Invento
 
     private static final Map<String, Object> LOCKS = new ConcurrentHashMap<>();
     private static final Set<String> CARGO_SYNC = ConcurrentHashMap.newKeySet();
+    private static final Set<String> CARGO_REFRESH_PENDING = ConcurrentHashMap.newKeySet();
     private static final Map<String, Integer> CARGO_OFFERED = new ConcurrentHashMap<>();
 
     private final long capacity;
+    private final ThreadLocal<ItemStack> pendingBreakDrop = new ThreadLocal<>();
 
     public SimpleDrawer(SlimefunItemStack item, RecipeType recipeType, ItemStack[] recipe, long capacity) {
         super(BCGroups.STORAGES, item, recipeType, recipe);
@@ -133,8 +136,15 @@ public class SimpleDrawer extends SlimefunItem implements NotHopperable, Invento
                 Block block = event.getBlock();
                 synchronized (lock(block.getLocation())) {
                     DrawerData data = DrawerStorage.read(block);
-                    ItemStack portableDrop = findOrCreateDrawerDrop(drops);
+
+                    // Slimefun appends getDrops() after this handler returns. Stage
+                    // exactly one block-specific portable drop for that call instead
+                    // of adding a drop here and receiving a second default drawer.
+                    drops.removeIf(SimpleDrawer.this::isItem);
+                    ItemStack portableDrop = MutableItemStacks.copy(getItem());
+                    portableDrop.setAmount(1);
                     DrawerStorage.saveToPortableItem(portableDrop, data);
+                    pendingBreakDrop.set(portableDrop);
 
                     // The output slot is only a mirror of DrawerStorage and must never drop.
                     // Preserve only an exceptional unprocessed input buffer, if one exists.
@@ -151,6 +161,7 @@ public class SimpleDrawer extends SlimefunItem implements NotHopperable, Invento
                     String key = locationKey(block.getLocation());
                     LOCKS.remove(key);
                     CARGO_SYNC.remove(key);
+                    CARGO_REFRESH_PENDING.remove(key);
                     CARGO_OFFERED.remove(key);
                 }
             }
@@ -232,7 +243,7 @@ public class SimpleDrawer extends SlimefunItem implements NotHopperable, Invento
                 }
 
                 if (slot == CARGO_OUTPUT_SLOT) {
-                    return accountForCargoWithdrawal(block, previous, next);
+                    return handleCargoOutputChange(block, previous, next);
                 }
 
                 return next;
@@ -306,33 +317,119 @@ public class SimpleDrawer extends SlimefunItem implements NotHopperable, Invento
         return remainder;
     }
 
-    private ItemStack accountForCargoWithdrawal(
+    /**
+     * Handles changes to the drawer's virtual cargo output slot.
+     *
+     * <p>The slot must remain empty after a full withdrawal. Slimefun withdraws
+     * an item first and only then attempts to deliver it. If delivery fails, it
+     * restores the remainder to the original slot. Refilling the mirror inside
+     * this callback prevents that rollback and can cause the item to be deleted
+     * when cargo overflow deletion is enabled.</p>
+     */
+    private ItemStack handleCargoOutputChange(
             Block block,
-            ItemStack previous,
-            ItemStack next
+            @Nullable ItemStack previous,
+            @Nullable ItemStack next
     ) {
+        if (isEmptyStack(previous)) {
+            if (isEmptyStack(next)) {
+                return null;
+            }
+
+            // Cargo could not deliver all or part of a withdrawn stack and is
+            // returning it to the original slot. Absorb it back into persistent
+            // drawer storage and keep the virtual slot empty.
+            ItemStack remainder = restoreCargoRollback(block, next);
+            scheduleCargoOutputSync(block);
+            return remainder;
+        }
+
         String key = locationKey(block.getLocation());
-        int fallbackOffer = previous == null ? 0 : previous.getAmount();
+        int fallbackOffer = previous.getAmount();
         int offered = CARGO_OFFERED.getOrDefault(key, fallbackOffer);
-        int remainingInSlot = next == null || next.getType().isAir() ? 0 : next.getAmount();
+        int remainingInSlot = isEmptyStack(next) ? 0 : next.getAmount();
         int removed = Math.max(0, offered - remainingInSlot);
 
-        DrawerData updated;
         synchronized (lock(block.getLocation())) {
             DrawerData data = DrawerStorage.read(block);
             if (removed > 0 && !data.isEmpty()) {
                 long actual = Math.min(data.count(), removed);
-                updated = new DrawerData(data.item(), data.count() - actual);
+                DrawerData updated = new DrawerData(data.item(), data.count() - actual);
                 DrawerStorage.write(block, updated);
                 DrawerDisplayManager.update(block, updated);
-            } else {
-                updated = data;
             }
         }
 
-        ItemStack replacement = createCargoOutput(updated);
-        CARGO_OFFERED.put(key, replacement == null ? 0 : replacement.getAmount());
-        return replacement;
+        // Preserve the real post-withdrawal slot state. In particular, a full
+        // withdrawal must leave null here so CargoNetworkTask can roll an
+        // undelivered stack back into this exact slot.
+        CARGO_OFFERED.put(key, remainingInSlot);
+        scheduleCargoOutputSync(block);
+        return next;
+    }
+
+    /**
+     * Restores an undelivered cargo remainder to persistent drawer storage.
+     * Returns only an amount that could not be restored, which should normally
+     * be null because the exact amount was just withdrawn from this drawer.
+     */
+    private ItemStack restoreCargoRollback(Block block, ItemStack returned) {
+        synchronized (lock(block.getLocation())) {
+            DrawerData data = DrawerStorage.read(block);
+            ItemStack stored = data.item();
+            ItemStack candidate = one(returned);
+
+            if (stored != null && !stored.isSimilar(candidate)) {
+                return MutableItemStacks.copy(returned);
+            }
+
+            long free = Math.max(0L, capacity - data.count());
+            int restored = (int) Math.min(free, returned.getAmount());
+            if (restored <= 0) {
+                return MutableItemStacks.copy(returned);
+            }
+
+            DrawerData updated = new DrawerData(
+                    stored == null ? candidate : stored,
+                    data.count() + restored
+            );
+            DrawerStorage.write(block, updated);
+            DrawerDisplayManager.update(block, updated);
+
+            int remaining = returned.getAmount() - restored;
+            if (remaining <= 0) {
+                return null;
+            }
+
+            ItemStack remainder = MutableItemStacks.copy(returned);
+            remainder.setAmount(remaining);
+            return remainder;
+        }
+    }
+
+    private void scheduleCargoOutputSync(Block block) {
+        String key = locationKey(block.getLocation());
+        if (!CARGO_REFRESH_PENDING.add(key)) {
+            return;
+        }
+
+        Bukkit.getScheduler().runTask(BetterChests.INSTANCE, () -> {
+            CARGO_REFRESH_PENDING.remove(key);
+
+            if (!(BlockStorage.check(block) instanceof SimpleDrawer)) {
+                CARGO_OFFERED.remove(key);
+                return;
+            }
+
+            BlockMenu currentMenu = BlockStorage.getInventory(block);
+            if (currentMenu != null) {
+                syncCargoOutput(block, currentMenu);
+            }
+        });
+    }
+
+    private static boolean isEmptyStack(@Nullable ItemStack item) {
+        return item == null || item.getType().isAir() || item.getAmount() < 1;
     }
 
     private void flushCargoInput(Block block, DirtyChestMenu menu) {
@@ -403,6 +500,29 @@ public class SimpleDrawer extends SlimefunItem implements NotHopperable, Invento
     @Override
     public int[] getOutputSlots() {
         return new int[]{CARGO_OUTPUT_SLOT};
+    }
+
+    /**
+     * The break handler stages a block-specific portable drawer immediately
+     * before Slimefun asks for this item's drops. Consume that one-shot drop;
+     * outside a handled drawer break, retain Slimefun's normal default drop.
+     */
+    @Override
+    public @NotNull Collection<ItemStack> getDrops() {
+        ItemStack portable = consumePendingBreakDrop();
+        return portable == null ? super.getDrops() : List.of(portable);
+    }
+
+    @Override
+    public @NotNull Collection<ItemStack> getDrops(Player player) {
+        ItemStack portable = consumePendingBreakDrop();
+        return portable == null ? super.getDrops(player) : List.of(portable);
+    }
+
+    private @Nullable ItemStack consumePendingBreakDrop() {
+        ItemStack portable = pendingBreakDrop.get();
+        pendingBreakDrop.remove();
+        return portable;
     }
 
     public long getCapacity() {
@@ -499,20 +619,6 @@ public class SimpleDrawer extends SlimefunItem implements NotHopperable, Invento
             return DrawerData.empty();
         }
         return new DrawerData(data.item(), Math.min(data.count(), capacity));
-    }
-
-    private ItemStack findOrCreateDrawerDrop(List<ItemStack> drops) {
-        ItemStack template = getItem();
-        for (ItemStack drop : drops) {
-            if (drop != null && drop.isSimilar(template)) {
-                return drop;
-            }
-        }
-
-        ItemStack added = MutableItemStacks.copy(template);
-        added.setAmount(1);
-        drops.add(added);
-        return added;
     }
 
     /**
